@@ -1,0 +1,133 @@
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
+
+public class Util {
+    // Set to track objects that have already been cleared to prevent infinite recursion
+    private static Set<Object> cleanedObjects = new HashSet<>();
+
+    /**
+     * Clears the fields of an object by resetting them to default values.
+     * It also handles nested objects (inner objects).
+     *
+     * @param obj The object to be cleared
+     * @param <T> The type of the object
+     * @return The cleared object
+     */
+    public static <T> Object clearObject(T obj) {
+        // Skip if the object is null or has already been cleared
+        if (obj == null || cleanedObjects.contains(obj)) {
+            return "";  // Return an empty string if the object is null or already cleared
+        }
+
+        Object ob = new Object();
+
+        switch (obj) {
+            // If the object is a String, return an empty string
+            case String s -> {
+                return "";
+            }
+            // If the object is a Number, return 0
+            case Number s -> {
+                return 0;
+            }
+            default -> {
+                // Mark this object as cleared to avoid recursive calls for the same object
+                cleanedObjects.add(obj);
+
+                // Get the class of the object and clear its fields
+                Class<?> clazz = obj.getClass();
+                ob = clearFields(obj, clazz);
+
+                // If the object has an enclosing class (i.e., an inner class), clear it as well
+                if (clazz.getEnclosingClass() != null) {
+                    try {
+                        Object innerObj = clazz.getDeclaredConstructor(obj.getClass()).newInstance(obj);
+                        ob = clearFields(innerObj, clazz);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+        return ob;
+    }
+
+    /**
+     * Clears the fields of a given object by setting them to their default values.
+     *
+     * @param obj   The object whose fields are to be cleared
+     * @param clazz The class of the object
+     * @return The cleared object
+     */
+    private static Object clearFields(Object obj, Class<?> clazz) {
+        // Iterate through all fields in the class and set their default values
+        for (Field field : clazz.getDeclaredFields()) {
+            try {
+                field.setAccessible(true);  // Ensure private fields can be accessed
+
+                // If the field is a numeric type (Integer, Long, Double, BigDecimal, etc.)
+                if (Number.class.isAssignableFrom(field.getType())) {
+                    if (field.getType() == Integer.class) {
+                        field.set(obj, Integer.valueOf(0));  // Set default value for Integer
+                    } else if (field.getType() == Long.class) {
+                        field.set(obj, Long.valueOf(0));  // Set default value for Long
+                    } else if (field.getType() == BigDecimal.class) {
+                        field.set(obj, BigDecimal.ZERO);  // Set default value for BigDecimal
+                    } else if (field.getType().isPrimitive()) {
+                        // If the field is a primitive data type (like float, boolean, etc.), set the default value
+                        setPrimitiveFieldToDefault(obj, field);
+                    }
+                }
+                // If the field is a String, set its default value as an empty string
+                else if (field.getType() == String.class) {
+                    field.set(obj, "");  // Set default value for String
+                }
+                // If the field is another object, recursively call clearObject to reset it
+                else {
+                    Object fieldValue = field.get(obj);
+                    if (fieldValue != null) {
+                        clearObject(fieldValue);  // If the field is an object, call clearObject
+                    }
+                }
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
+        return obj;
+    }
+
+    /**
+     * Sets default values for primitive fields.
+     *
+     * @param obj   The object containing the field
+     * @param field The field to be cleared
+     * @throws IllegalAccessException If access to the field is denied
+     */
+    private static void setPrimitiveFieldToDefault(Object obj, Field field) throws IllegalAccessException {
+        if (field.getType() == boolean.class) {
+            field.setBoolean(obj, false);  // Set boolean to false
+        } else if (field.getType() == byte.class) {
+            field.setByte(obj, (byte) 0);  // Set byte to 0
+        } else if (field.getType() == short.class) {
+            field.setShort(obj, (short) 0);  // Set short to 0
+        } else if (field.getType() == long.class) {
+            field.setLong(obj, 0L);  // Set long to 0
+        } else if (field.getType() == double.class) {
+            field.setDouble(obj, 0.0);  // Set double to 0.0
+        } else if (field.getType() == float.class) {
+            field.setFloat(obj, 0.0f);  // Set float to 0.0f
+        } else if (field.getType() == char.class) {
+            field.setChar(obj, '\u0000');  // Set char to the null character
+        } else if (field.getType() == int.class) {
+            field.setInt(obj, 0);  // Set int to 0
+        } else if (field.getType() == Integer.class) {
+            field.set(obj, Integer.valueOf(0));  // Set Integer to 0
+        } else if (field.getType() == BigDecimal.class) {
+            field.set(obj, BigDecimal.ZERO);  // Set BigDecimal to zero
+        } else {
+            // Handle other types or do nothing
+        }
+    }
+}
